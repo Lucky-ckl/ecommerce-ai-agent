@@ -24,7 +24,6 @@ from app.agent.registry import execute_tool
 
 from app.memory.redis_state import (
     get_pending_action,
-    set_pending_action,
     clear_pending_action
 )
 
@@ -336,9 +335,6 @@ def handle_pending_action(
 
 def agent(user_id, user_message):
 
-    global _CURRENT_USER_ID
-
-    _CURRENT_USER_ID = user_id
 
 
     logger.info(

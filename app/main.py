@@ -3,15 +3,13 @@
 # FastAPI 服务入口
 # ============================================================
 
-
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-
 from app.api.chat import router as chat_router
 from app.config import LLM_MODEL
-
+from app.database.db import init_db
 
 
 # ============================================================
@@ -23,6 +21,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
+# ============================================================
+# 初始化数据库
+# ============================================================
+
+# 服务启动时自动创建数据库、orders 表和测试订单
+init_db()
 
 
 # ============================================================
@@ -39,7 +44,11 @@ app.include_router(
 # 前端页面
 # ============================================================
 
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory="frontend"),
+    name="static"
+)
 
 
 @app.get("/")
