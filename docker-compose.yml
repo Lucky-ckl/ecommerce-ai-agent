@@ -1,0 +1,38 @@
+# ============================================================
+# docker-compose.yml
+# 跨境电商 AI 客服 Agent
+# ============================================================
+
+services:
+
+  # ==========================================================
+  # 1. Redis
+  # ==========================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    restart: unless-stopped
+
+
+  # ==========================================================
+  # 2. AI Agent
+  # ==========================================================
+  agent:
+    build: .
+    container_name: ecommerce-ai-agent
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      # Agent 容器通过服务名 redis 访问 Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # LLM API Key
+      # 从项目根目录的 .env 中读取
+      IKUNCODE_API_KEY: ${IKUNCODE_API_KEY}
+
+    depends_on:
+      - redis

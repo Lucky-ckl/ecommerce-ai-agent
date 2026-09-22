@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>跨境电商 AI 客服 Agent</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">AI</div>
+        <div>
+          <div class="brand-title">E-Commerce Agent</div>
+          <div class="brand-subtitle">跨境电商智能客服</div>
+        </div>
+      </div>
+
+      <button class="new-chat" id="newChatBtn">＋ 新建会话</button>
+
+      <div class="sidebar-section-title">功能</div>
+      <div class="feature-list">
+        <div class="feature-item active"><span>💬</span> 智能客服</div>
+        <div class="feature-item"><span>📦</span> 订单查询</div>
+        <div class="feature-item"><span>📚</span> 知识库问答</div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="stack-title">Agent 能力</div>
+        <div class="tag-row">
+          <span>LangChain</span><span>RAG</span><span>Tool Calling</span>
+          <span>Redis</span><span>Memory</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="chat-area">
+      <header class="topbar">
+        <div>
+          <div class="page-title">AI 客服工作台</div>
+          <div class="page-subtitle"><span class="online-dot"></span> Agent 在线 · 可查询订单与跨境电商政策</div>
+        </div>
+        <div class="topbar-badge">Agent v1.0</div>
+      </header>
+
+      <section class="messages" id="messages">
+        <div class="welcome" id="welcome">
+          <div class="welcome-icon">🤖</div>
+          <h1>你好，我是跨境电商 AI 客服</h1>
+          <p>我可以帮你查询订单、处理退货退款政策等问题。</p>
+          <div class="quick-actions">
+            <button data-message="查询订单1002">📦 查询订单1002</button>
+            <button data-message="日本地区的商品退货政策是什么？">🇯🇵 日本退货政策</button>
+            <button data-message="帮我取消订单1001">⚠️ 取消订单1001</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="composer-wrap">
+        <div class="composer">
+          <textarea id="messageInput" rows="1" placeholder="输入你的问题，例如：查询订单1002"></textarea>
+          <button id="sendBtn" class="send-btn" aria-label="发送">➤</button>
+        </div>
+        <div class="composer-hint">Enter 发送 · Shift + Enter 换行 · 危险操作需要确认</div>
+      </div>
+    </main>
+
+    <aside class="info-panel">
+      <div class="info-header">Agent 状态</div>
+      <div class="status-card">
+        <div class="status-row"><span>运行状态</span><strong><i class="green-dot"></i>正常</strong></div>
+        <div class="status-row"><span>模型</span><strong id="modelName">GPT-5.6-terra</strong></div>
+        <div class="status-row"><span>框架</span><strong>LangChain</strong></div>
+      </div>
+
+      <div class="info-title">当前架构</div>
+      <div class="architecture">
+        <div class="arch-node">用户问题</div>
+        <div class="arrow">↓</div>
+        <div class="arch-node primary">LangChain Agent</div>
+        <div class="arrow">↓</div>
+        <div class="arch-grid">
+          <span>Tool</span><span>RAG</span><span>Memory</span><span>Redis</span>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="arch-node">LLM</div>
+      </div>
+
+      <div class="info-title">快捷测试</div>
+      <div class="test-list">
+        <button data-message="查询订单1001">查询订单</button>
+        <button data-message="美国地区的退货政策是什么？">RAG 政策查询</button>
+        <button data-message="帮我取消订单1001">危险 Tool 确认</button>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+[
+    {
+        "id": "return_policy_001",
+        "text": "日本地区消费者签收商品后的7天内，可以申请退货。",
+        "category": "退货政策",
+        "country": "日本"
+    },
+    {
+        "id": "return_policy_002",
+        "text": "商品存在质量问题时，公司承担退货运费。",
+        "category": "退货政策",
+        "country": "日本"
+    },
+    {
+        "id": "refund_policy_001",
+        "text": "普通退货审核通过后，退款将在3到5个工作日内到账。",
+        "category": "退款政策",
+        "country": "日本"
+    },
+    {
+        "id": "return_policy_003",
+        "text": "商品已经使用且不存在质量问题时，通常不能申请无理由退货。",
+        "category": "退货政策",
+        "country": "日本"
+    }
+]
