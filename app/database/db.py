@@ -38,8 +38,15 @@ def init_db():
         init_tickets_table
     )
 
+    from app.database.business_store import (
+        init_business_tables,
+        seed_business_data
+    )
+
     init_session_tables()
     init_tickets_table()
+    init_business_tables()
+    seed_business_data()
 
     conn = get_connection()
 

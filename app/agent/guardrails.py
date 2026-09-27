@@ -194,6 +194,37 @@ JAILBREAK_MESSAGE = (
 )
 
 
+def extract_order_id(text):
+    """
+    从用户消息里提取订单号。
+
+    规则层兜底时使用：
+    取消订单这类危险操作不能只依赖模型解析参数。
+    """
+
+    match = re.search(
+        r"(?:订单|order)\s*#?\s*(\d{3,})",
+        text or "",
+        re.IGNORECASE
+    )
+
+    if match:
+
+        return int(match.group(1))
+
+    # 用户只说了一串数字，例如"取消 1002"
+    match = re.search(
+        r"\b(\d{4})\b",
+        text or ""
+    )
+
+    if match:
+
+        return int(match.group(1))
+
+    return None
+
+
 def rejection_for(intent):
     """
     返回（是否拒绝, 拒绝话术）

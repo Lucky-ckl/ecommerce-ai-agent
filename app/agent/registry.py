@@ -23,6 +23,15 @@ from app.tools.knowledge import search_knowledge
 
 from app.tools.ticket import transfer_to_human
 
+from app.tools.business import (
+    list_orders,
+    query_logistics,
+    apply_refund,
+    update_address,
+    query_coupon,
+    estimate_shipping_fee
+)
+
 from app.agent.result import (
     error,
     system_error
@@ -219,6 +228,77 @@ def get_order_record(order_id: int):
 def cancel_order_tool(order_id: int):
 
     return cancel_order(order_id)
+
+
+@tool(
+    "list_orders",
+    "查询某个用户名下的全部订单列表"
+)
+def list_orders_tool(user_id: int):
+
+    return list_orders(user_id)
+
+
+@tool(
+    "query_logistics",
+    "查询订单的物流轨迹、承运商与预计到达时间"
+)
+def query_logistics_tool(order_id: int):
+
+    return query_logistics(order_id)
+
+
+@tool(
+    "apply_refund",
+    (
+        "为订单申请退款。"
+        "该操作会产生一笔退款单，需要用户确认。"
+    ),
+    dangerous=True
+)
+def apply_refund_tool(
+    order_id: int,
+    reason: str = "用户申请"
+):
+
+    return apply_refund(order_id, reason)
+
+
+@tool(
+    "update_address",
+    (
+        "修改订单的收货地址。"
+        "该操作会修改订单信息，需要用户确认。"
+    ),
+    dangerous=True
+)
+def update_address_tool(
+    order_id: int,
+    new_address: str
+):
+
+    return update_address(order_id, new_address)
+
+
+@tool(
+    "query_coupon",
+    "查询某个用户可用的优惠券、金额与有效期"
+)
+def query_coupon_tool(user_id: int):
+
+    return query_coupon(user_id)
+
+
+@tool(
+    "estimate_shipping_fee",
+    "根据国家与重量估算运费和时效"
+)
+def estimate_shipping_fee_tool(
+    country: str,
+    weight_kg: float = 1.0
+):
+
+    return estimate_shipping_fee(country, weight_kg)
 
 
 @tool(

@@ -43,6 +43,7 @@ from app.utils.logger import logger
 from app.agent.context import SYSTEM_PROMPT
 
 from app.agent.guardrails import (
+    INTENT_CANCELLATION,
     INTENT_HANDOFF,
     INTENT_LABELS,
     JAILBREAK_MESSAGE,
@@ -53,6 +54,7 @@ from app.agent.guardrails import (
 
 from app.agent.language import build_language_hint
 
+from app.agent.middleware import require_confirmation
 from app.agent.session_context import set_current_session
 
 from app.database.ticket_store import create_ticket
@@ -154,6 +156,100 @@ def cancel_order(order_id: int) -> dict:
     )
 
 @tool
+def list_orders(user_id: int) -> dict:
+    """
+    查询某个用户名下的全部订单。
+    """
+
+    return execute_tool(
+        tool_name="list_orders",
+        arguments={
+            "user_id": user_id
+        }
+    )
+
+
+@tool
+def query_logistics(order_id: int) -> dict:
+    """
+    查询订单的物流轨迹与预计到达时间。
+    """
+
+    return execute_tool(
+        tool_name="query_logistics",
+        arguments={
+            "order_id": order_id
+        }
+    )
+
+
+@tool
+def apply_refund(order_id: int, reason: str = "用户申请") -> dict:
+    """
+    为订单申请退款。
+
+    Dangerous Tool 的确认由 Middleware 负责。
+    """
+
+    return execute_tool(
+        tool_name="apply_refund",
+        arguments={
+            "order_id": order_id,
+            "reason": reason
+        }
+    )
+
+
+@tool
+def update_address(order_id: int, new_address: str) -> dict:
+    """
+    修改订单收货地址。
+
+    Dangerous Tool 的确认由 Middleware 负责。
+    """
+
+    return execute_tool(
+        tool_name="update_address",
+        arguments={
+            "order_id": order_id,
+            "new_address": new_address
+        }
+    )
+
+
+@tool
+def query_coupon(user_id: int) -> dict:
+    """
+    查询用户可用的优惠券。
+    """
+
+    return execute_tool(
+        tool_name="query_coupon",
+        arguments={
+            "user_id": user_id
+        }
+    )
+
+
+@tool
+def estimate_shipping_fee(
+    country: str,
+    weight_kg: float = 1.0
+) -> dict:
+    """
+    根据国家与重量估算运费和时效。
+    """
+
+    return execute_tool(
+        tool_name="estimate_shipping_fee",
+        arguments={
+            "country": country,
+            "weight_kg": weight_kg
+        }
+    )
+
+
+@tool
 def transfer_to_human(reason: str) -> dict:
     """
     转接人工客服，创建一张人工工单。
@@ -207,7 +303,13 @@ LANGCHAIN_TOOLS = [
     get_order_record,
     cancel_order,
     search_knowledge,
-    transfer_to_human
+    transfer_to_human,
+    list_orders,
+    query_logistics,
+    apply_refund,
+    update_address,
+    query_coupon,
+    estimate_shipping_fee
 ]
 
 
@@ -495,6 +597,39 @@ def agent(user_id, user_message):
             rejection_message
         )
 
+
+    # --------------------------------------------------------
+    # 取消订单是危险操作，不能只靠模型"自觉"调用 Tool
+    #
+    # 实测中模型有时会只用文字回复"是否确认"，
+    # 而真正的确认流程必须由系统接管。
+    # 所以这里在规则层直接进确认流程，不经过模型。
+    # --------------------------------------------------------
+
+    if intent == INTENT_CANCELLATION:
+
+        order_id = extract_order_id(user_message)
+
+        if order_id is not None:
+
+            logger.info(
+                f"取消订单走规则层兜底 | "
+                f"order_id={order_id}"
+            )
+
+            add_message(
+                user_id,
+                "user",
+                user_message
+            )
+
+            return require_confirmation(
+                tool_name="cancel_order",
+                arguments={
+                    "order_id": order_id
+                },
+                user_id=user_id
+            )
 
     # 用户明确要求转人工：直接开工单，不走模型
     if intent == INTENT_HANDOFF:
