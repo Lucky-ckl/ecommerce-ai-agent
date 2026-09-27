@@ -65,6 +65,28 @@ button { cursor: pointer; }
   letter-spacing: .08em; text-transform: uppercase;
 }
 .sidebar-section-title { margin: 28px 10px 10px; }
+
+/* 历史会话列表 */
+.session-list { display: grid; gap: 3px; max-height: 320px; overflow-y: auto; }
+.session-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: #5c6578;
+}
+.session-item:hover { background: #f3f4f8; }
+.session-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+.session-title {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.session-delete {
+  border: 0; background: transparent; color: #9aa3b2;
+  cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 4px;
+  opacity: 0;
+}
+.session-item:hover .session-delete { opacity: 1; }
+.session-delete:hover { background: #e5e7eb; color: #ef4444; }
+.session-empty { font-size: 12px; color: #9aa3b2; padding: 6px 12px; }
 .feature-list { display: grid; gap: 5px; }
 .feature-item {
   padding: 10px 12px; border-radius: 9px; color: #5c6578; font-size: 13px;

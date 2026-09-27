@@ -28,6 +28,14 @@ def get_connection():
 
 def init_db():
 
+    # 会话表放在 session_store 里，
+    # 这里做局部导入，避免模块循环引用
+    from app.database.session_store import (
+        init_session_tables
+    )
+
+    init_session_tables()
+
     conn = get_connection()
 
     cursor = conn.cursor()

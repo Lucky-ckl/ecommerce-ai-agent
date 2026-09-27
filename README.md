@@ -84,12 +84,24 @@ Agent：确定要取消订单 1001 吗？请回复"确认"或"取消"
 
 ### 4. 状态管理
 
-Redis 存两类状态，TTL 均为 30 分钟：
+**两级存储，冷热分离：**
 
-- `conversation:{user_id}` —— 最近 5 轮对话历史
-- `agent_state:{user_id}` —— 待确认的危险操作
+| 存储 | 放什么 | 生命周期 |
+|---|---|---|
+| Redis（热） | 最近 5 轮对话、待确认的危险操作 | TTL 30 分钟 |
+| SQLite（冷） | `sessions` + `messages` 全部历史 | 永久 |
 
-订单数据存 SQLite，工程上够用且零运维。
+```
+conversation:{session_id}   Redis，给模型当上下文，30 分钟过期
+agent_state:{session_id}    Redis，待确认的取消操作
+sessions / messages          SQLite，可回看、可切换、刷新不丢
+```
+
+**为什么分两层**：模型只需要最近几轮，全量历史塞进上下文既浪费 token 又拖慢响应；但用户需要能翻回旧会话。所以 Redis 只做热缓存，SQLite 做持久化。
+
+新建会话只是换一个 `session_id`，**旧会话仍然保留在侧边栏，随时可以切回去**。
+
+订单数据同样存 SQLite，工程上够用且零运维。
 
 ---
 

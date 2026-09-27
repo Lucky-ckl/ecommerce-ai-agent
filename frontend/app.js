@@ -5,6 +5,7 @@ const welcome = document.getElementById('welcome');
 const newChatBtn = document.getElementById('newChatBtn');
 
 let busy = false;
+let currentSessionId = null;
 
 function scrollBottom() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -182,6 +183,121 @@ function removeTyping() {
   document.getElementById('typingRow')?.remove();
 }
 
+// ============================================================
+// 会话管理
+// 历史会话存在 SQLite 里，新建会话只是换一个 session_id，
+// 不会删除旧会话。
+// ============================================================
+
+function setActiveSession(sessionId) {
+  currentSessionId = sessionId;
+  document.querySelectorAll('.session-item').forEach((el) => {
+    el.classList.toggle('active', el.dataset.id === sessionId);
+  });
+}
+
+async function loadSessions() {
+  try {
+    const response = await fetch('/api/sessions');
+    const data = await response.json();
+
+    const listEl = document.getElementById('sessionList');
+    if (!listEl) return;
+
+    listEl.innerHTML = '';
+
+    (data.sessions || []).forEach((session) => {
+      const item = document.createElement('div');
+      item.className = 'session-item';
+      item.dataset.id = session.session_id;
+      if (session.session_id === currentSessionId) {
+        item.classList.add('active');
+      }
+
+      const title = document.createElement('span');
+      title.className = 'session-title';
+      title.textContent = session.title || '新会话';
+
+      const del = document.createElement('button');
+      del.className = 'session-delete';
+      del.textContent = '✕';
+      del.title = '删除会话';
+      del.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await removeSession(session.session_id);
+      });
+
+      item.appendChild(title);
+      item.appendChild(del);
+
+      item.addEventListener('click', () => openSession(session.session_id));
+
+      listEl.appendChild(item);
+    });
+  } catch (error) {
+    console.warn('读取会话列表失败：', error);
+  }
+}
+
+async function createNewSession() {
+  try {
+    const response = await fetch('/api/sessions', { method: 'POST' });
+    const data = await response.json();
+    setActiveSession(data.session_id);
+  } catch (error) {
+    setActiveSession(null);
+  }
+
+  messagesEl.innerHTML = '';
+  messagesEl.appendChild(welcome);
+  welcome.style.display = '';
+  input.focus();
+  loadSessions();
+}
+
+async function openSession(sessionId) {
+  try {
+    const response = await fetch(`/api/sessions/${sessionId}/messages`);
+    const data = await response.json();
+
+    setActiveSession(sessionId);
+
+    messagesEl.innerHTML = '';
+
+    const messages = data.messages || [];
+
+    if (messages.length === 0) {
+      messagesEl.appendChild(welcome);
+      welcome.style.display = '';
+      return;
+    }
+
+    welcome.style.display = 'none';
+
+    messages.forEach((message) => {
+      // 后端存的是 user / assistant，前端用 user / ai
+      const role = message.role === 'assistant' ? 'ai' : message.role;
+      addMessage(role, message.content);
+    });
+  } catch (error) {
+    console.error('打开会话失败：', error);
+  }
+}
+
+async function removeSession(sessionId) {
+  try {
+    await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+
+    if (sessionId === currentSessionId) {
+      createNewSession();
+    } else {
+      loadSessions();
+    }
+  } catch (error) {
+    console.error('删除会话失败：', error);
+  }
+}
+
 async function sendMessage(text = input.value.trim()) {
   if (!text || busy) return;
 
@@ -196,7 +312,10 @@ async function sendMessage(text = input.value.trim()) {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({
+        message: text,
+        session_id: currentSessionId
+      })
     });
 
     const data = await response.json();
@@ -207,8 +326,13 @@ async function sendMessage(text = input.value.trim()) {
       return;
     }
 
-    // 后端当前固定返回：{ result: agent(...) }
+    if (data.session_id) {
+      setActiveSession(data.session_id);
+    }
+
+    // 后端返回：{ result: agent(...), session_id }
     renderAgentResult(data?.result);
+    loadSessions();
   } catch (error) {
     removeTyping();
     addErrorCard('无法连接到 AI Agent，请确认 FastAPI 服务已经启动。');
@@ -218,25 +342,6 @@ async function sendMessage(text = input.value.trim()) {
     sendBtn.disabled = false;
     input.focus();
   }
-}
-
-async function clearChat() {
-  try {
-    const response = await fetch('/api/chat/clear', {
-      method: 'POST'
-    });
-
-    if (!response.ok) {
-      throw new Error('clear failed');
-    }
-  } catch (error) {
-    console.error('清除后端会话失败：', error);
-  }
-
-  messagesEl.innerHTML = '';
-  messagesEl.appendChild(welcome);
-  welcome.style.display = '';
-  input.focus();
 }
 
 sendBtn.addEventListener('click', () => sendMessage());
@@ -257,7 +362,13 @@ document.querySelectorAll('[data-message]').forEach((button) => {
   button.addEventListener('click', () => sendMessage(button.dataset.message));
 });
 
-newChatBtn.addEventListener('click', clearChat);
+// 新建会话：只开一个新会话，不再清空历史
+newChatBtn.addEventListener('click', createNewSession);
+
+// 页面加载时读取历史会话列表
+(async function initSessions() {
+  await loadSessions();
+})();
 
 // 页面加载后从后端健康检查接口同步实际模型名称。
 (async function loadAgentStatus() {

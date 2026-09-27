@@ -5,7 +5,13 @@
 
 import json
 
+from app.database.session_store import (
+    append_message
+)
+
 from app.memory.redis_state import redis_client
+
+from app.utils.logger import logger
 
 
 # ============================================================
@@ -114,6 +120,31 @@ def add_message(
         ),
         ex=CONVERSATION_TTL
     )
+
+    # ========================================================
+    # 同时落库
+    #
+    # Redis 只是热缓存，30 分钟后就没了。
+    # 这里把每一条消息写进 SQLite，
+    # 这样"新建会话"不会真的丢掉历史，随时可以切回去看。
+    #
+    # 这里的 user_id 实际上就是 session_id。
+    # ========================================================
+
+    try:
+
+        append_message(
+            user_id,
+            role,
+            content
+        )
+
+    except Exception as e:
+
+        # 落库失败不能影响对话本身
+        logger.exception(
+            f"消息落库失败 | session={user_id}"
+        )
 
 # ============================================================
 # 5. 清除历史消息
