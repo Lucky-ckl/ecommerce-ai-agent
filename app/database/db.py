@@ -34,7 +34,12 @@ def init_db():
         init_session_tables
     )
 
+    from app.database.ticket_store import (
+        init_tickets_table
+    )
+
     init_session_tables()
+    init_tickets_table()
 
     conn = get_connection()
 

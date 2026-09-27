@@ -257,6 +257,21 @@ body {
 .confirm-btn { background: linear-gradient(135deg, var(--primary), #9b83ff); color: #fff; }
 .cancel-btn { background: #f2f0f8; color: #6b6580; }
 
+/* 人工工单卡片 */
+.ticket-card {
+  background: linear-gradient(180deg, #eef7ff, #fff);
+  border: 1px solid #cfe4ff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-md);
+  max-width: 400px;
+}
+.ticket-title { font-weight: 800; font-size: 13px; color: #2563eb; margin-bottom: 10px; }
+.ticket-row { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; }
+.ticket-row span { color: var(--muted); }
+.ticket-status { color: #2563eb; }
+.ticket-text { margin-top: 10px; font-size: 13px; line-height: 1.6; color: #4b5563; white-space: pre-wrap; }
+
 /* 打字动画 */
 .typing { display: inline-flex; gap: 4px; }
 .typing i {

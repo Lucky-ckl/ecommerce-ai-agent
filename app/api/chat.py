@@ -21,6 +21,7 @@ from app.database.session_store import (
     get_session_messages,
     list_sessions
 )
+from app.database.ticket_store import list_tickets
 from app.memory.conversation import clear_conversation
 from app.memory.redis_state import clear_pending_action
 
@@ -98,6 +99,14 @@ def session_messages(session_id: str):
         "messages": get_session_messages(
             session_id
         )
+    }
+
+
+@router.get("/tickets")
+def get_tickets():
+
+    return {
+        "tickets": list_tickets()
     }
 
 

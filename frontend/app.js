@@ -171,6 +171,27 @@ function addConfirmationCard(result) {
   scrollBottom();
 }
 
+function addTicketCard(ticket, message) {
+  if (welcome) welcome.style.display = 'none';
+
+  const row = document.createElement('div');
+  row.className = 'message-row ai';
+
+  const card = document.createElement('div');
+  card.className = 'ticket-card';
+  card.innerHTML = `
+    <div class="ticket-title">🎧 已转接人工客服</div>
+    <div class="ticket-row"><span>工单号</span><strong>${escapeHtml(ticket.ticket_id)}</strong></div>
+    <div class="ticket-row"><span>状态</span><strong class="ticket-status">待人工处理</strong></div>
+    ${message ? `<div class="ticket-text">${escapeHtml(message)}</div>` : ''}
+  `;
+
+  row.appendChild(aiAvatar());
+  row.appendChild(card);
+  messagesEl.appendChild(row);
+  scrollBottom();
+}
+
 function addErrorCard(message) {
   addMessage('ai', `⚠️ ${message}`);
 }
@@ -201,6 +222,13 @@ function renderAgentResult(result) {
   }
 
   if (result.status === 'success') {
+    // 人工工单（转人工 / 模型主动升级）
+    const ticket = result.data?.ticket;
+    if (ticket) {
+      addTicketCard(ticket, result.message);
+      return;
+    }
+
     const order = result.data?.order;
     if (order) {
       addOrderCard(order);

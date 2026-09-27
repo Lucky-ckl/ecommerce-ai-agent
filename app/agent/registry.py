@@ -21,6 +21,8 @@ from app.tools.order import (
 
 from app.tools.knowledge import search_knowledge
 
+from app.tools.ticket import transfer_to_human
+
 from app.agent.result import (
     error,
     system_error
@@ -217,6 +219,19 @@ def get_order_record(order_id: int):
 def cancel_order_tool(order_id: int):
 
     return cancel_order(order_id)
+
+
+@tool(
+    "transfer_to_human",
+    (
+        "转接人工客服，创建一张人工工单。"
+        "当用户明确要求转人工、"
+        "或者你的知识库查不到答案无法准确回答时调用。"
+    )
+)
+def transfer_to_human_tool(reason: str):
+
+    return transfer_to_human(reason)
 
 
 @tool(

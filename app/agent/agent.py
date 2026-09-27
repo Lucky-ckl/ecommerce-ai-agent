@@ -42,6 +42,21 @@ from app.utils.logger import logger
 
 from app.agent.context import SYSTEM_PROMPT
 
+from app.agent.guardrails import (
+    INTENT_HANDOFF,
+    INTENT_LABELS,
+    JAILBREAK_MESSAGE,
+    classify_intent,
+    detect_jailbreak,
+    rejection_for
+)
+
+from app.agent.language import build_language_hint
+
+from app.agent.session_context import set_current_session
+
+from app.database.ticket_store import create_ticket
+
 from app.agent.result import system_error
 
 from app.agent.middleware import dangerous_tool_confirmation
@@ -139,6 +154,32 @@ def cancel_order(order_id: int) -> dict:
     )
 
 @tool
+def transfer_to_human(reason: str) -> dict:
+    """
+    转接人工客服，创建一张人工工单。
+
+    适用情况：
+
+    1. 用户明确要求转人工客服
+    2. 知识库查不到答案，无法准确回答
+    3. 用户情绪激动、问题反复得不到解决
+    """
+
+    logger.info(
+        f"LangChain Tool调用 | "
+        f"tool=transfer_to_human | "
+        f"reason={reason}"
+    )
+
+    return execute_tool(
+        tool_name="transfer_to_human",
+        arguments={
+            "reason": reason
+        }
+    )
+
+
+@tool
 def search_knowledge(question: str) -> dict:
     """
     查询跨境电商知识库，例如退货政策、退款政策、物流规则等。
@@ -165,7 +206,8 @@ def search_knowledge(question: str) -> dict:
 LANGCHAIN_TOOLS = [
     get_order_record,
     cancel_order,
-    search_knowledge
+    search_knowledge,
+    transfer_to_human
 ]
 
 
@@ -198,6 +240,47 @@ agent_executor = create_agent(
         dangerous_tool_confirmation
     ]
 )
+
+
+# ============================================================
+# 5.1 提前返回
+#
+# 护栏命中、或已转人工时，
+# 不调用模型，但要照常把消息存进历史，
+# 保证用户切回会话时还能看到完整对话。
+# ============================================================
+
+def finish_early(
+    user_id,
+    user_message,
+    reply,
+    ticket=None
+):
+
+    add_message(
+        user_id,
+        "user",
+        user_message
+    )
+
+    add_message(
+        user_id,
+        "assistant",
+        reply
+    )
+
+    result = {
+        "status": "success",
+        "message": reply
+    }
+
+    if ticket is not None:
+
+        result["data"] = {
+            "ticket": ticket
+        }
+
+    return result
 
 
 # ============================================================
@@ -360,7 +443,82 @@ def agent(user_id, user_message):
 
 
     # ========================================================
-    # ② 读取Conversation Memory
+    # ② 入口治理
+    #
+    # 在调用 LLM 之前先做三件事：
+    #
+    # 1. 提示词注入检测
+    # 2. 意图分类（Triage）
+    # 3. 无关问题拦截（Relevance Guardrail）
+    #
+    # 命中就直接返回，不再调用模型：
+    # 省钱、省时间，也不会被带跑偏。
+    # ========================================================
+
+    if detect_jailbreak(user_message):
+
+        logger.warning(
+            f"命中提示词注入护栏 | "
+            f"user_id={user_id} | "
+            f"message={user_message}"
+        )
+
+        return finish_early(
+            user_id,
+            user_message,
+            JAILBREAK_MESSAGE
+        )
+
+
+    intent = classify_intent(user_message)
+
+    logger.info(
+        f"意图识别结果 | "
+        f"intent={intent}"
+    )
+
+
+    rejected, rejection_message = rejection_for(
+        intent
+    )
+
+    if rejected:
+
+        logger.info(
+            f"命中无关问题护栏 | "
+            f"intent={intent}"
+        )
+
+        return finish_early(
+            user_id,
+            user_message,
+            rejection_message
+        )
+
+
+    # 用户明确要求转人工：直接开工单，不走模型
+    if intent == INTENT_HANDOFF:
+
+        ticket = create_ticket(
+            session_id=user_id,
+            user_message=user_message,
+            reason="user_request"
+        )
+
+        return finish_early(
+            user_id,
+            user_message,
+            (
+                f"已为你转接人工客服 🎧\n"
+                f"工单号：{ticket['ticket_id']}\n"
+                f"客服会尽快与你联系，请留意消息通知。"
+            ),
+            ticket=ticket
+        )
+
+
+    # ========================================================
+    # ③ 读取Conversation Memory
     # ========================================================
 
     history = get_conversation(user_id)
@@ -403,9 +561,33 @@ def agent(user_id, user_message):
         })
 
 
+    # --------------------------------------------------------
+    # 语言指令和意图提示只追加给模型看
+    # 存进历史的是用户的原始消息，避免污染上下文
+    # --------------------------------------------------------
+
+    language, language_hint = build_language_hint(
+        user_message
+    )
+
+    intent_hint = (
+        f"\n\n[问题类型] "
+        f"{INTENT_LABELS.get(intent, '普通咨询')}"
+    )
+
+    logger.info(
+        f"应答语言 | "
+        f"language={language} | "
+        f"intent={intent}"
+    )
+
     messages.append({
         "role": "user",
-        "content": user_message
+        "content": (
+            user_message
+            + language_hint
+            + intent_hint
+        )
     })
 
     add_message(
@@ -413,6 +595,9 @@ def agent(user_id, user_message):
         "user",
         user_message
     )
+
+    # Tool 需要知道当前会话（转人工工单要用）
+    set_current_session(user_id)
 
 
     # ========================================================
