@@ -132,18 +132,42 @@ uvicorn app.main:app --reload
 
 ## 实测效果
 
+### 场景一：政策问答（走 RAG）
+
+用户问退货时限，Agent 调用 `search_knowledge`，经混合检索 + 重排取回政策后作答。
+
+![政策问答](docs/screenshot-knowledge.png)
+
 ```
 用户：日本买的商品几天可以退？
 Agent：日本地区消费者在签收商品后的 7 天内可以申请退货。
+```
 
+### 场景二：订单查询（走工具调用）
+
+Agent 自主选择 `get_order_record`，从 SQLite 读出订单状态。
+
+![订单查询](docs/screenshot-order.png)
+
+```
 用户：查一下订单 1001
 Agent：订单 1001，商品 XXX，当前状态：已发货。
+```
 
+### 场景三：取消订单（危险操作人工确认）
+
+**这是本项目的核心机制**：`cancel_order` 被中间件拦截，写入 Redis 待确认状态，**在用户确认前业务函数一次都没有被执行**。
+
+![危险操作确认](docs/screenshot-confirm.png)
+
+```
 用户：帮我取消订单 1001
 Agent：确定要取消订单 1001 吗？请回复"确认"或"取消"
 用户：确认
 Agent：订单 1001 已取消。
 ```
+
+> 截图存放位置：`docs/screenshot-knowledge.png`、`docs/screenshot-order.png`、`docs/screenshot-confirm.png`
 
 ---
 
