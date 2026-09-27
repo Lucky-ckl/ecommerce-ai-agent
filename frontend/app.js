@@ -1,14 +1,94 @@
+/* ============================================================
+   app.js
+   动漫风客服界面逻辑
+   ============================================================ */
+
 const messagesEl = document.getElementById('messages');
 const input = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const welcome = document.getElementById('welcome');
 const newChatBtn = document.getElementById('newChatBtn');
+const devPanel = document.getElementById('devPanel');
+const devToggle = document.getElementById('devToggle');
+const devClose = document.getElementById('devClose');
 
 let busy = false;
 let currentSessionId = null;
 
+
+/* ============================================================
+   看板娘：原创手绘 SVG
+   不用 Live2D，是因为它 GPL 且模型版权不明，
+   放在求职作品集里有风险；这个形象可商用、离线可用。
+   ============================================================ */
+
+function mascotSvg() {
+  return `
+  <svg viewBox="0 0 64 64" class="mascot" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="hairGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#7b6bff"/>
+        <stop offset="100%" stop-color="#4b3fd6"/>
+      </linearGradient>
+      <linearGradient id="clothGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffffff"/>
+        <stop offset="100%" stop-color="#ece7ff"/>
+      </linearGradient>
+    </defs>
+
+    <!-- 双马尾 -->
+    <path d="M12 28c-5 7-5 18 1 25 4-9 7-15 11-18z" fill="url(#hairGrad)"/>
+    <path d="M52 28c5 7 5 18-1 25-4-9-7-15-11-18z" fill="url(#hairGrad)"/>
+
+    <!-- 后发 -->
+    <path d="M14 28c0-14 9-20 18-20s18 6 18 20c0 5-1 9-1 9H15s-1-4-1-9z" fill="url(#hairGrad)"/>
+
+    <!-- 身体 / 制服 -->
+    <path d="M22 56c0-9 4-14 10-14s10 5 10 14z" fill="url(#clothGrad)"/>
+    <path d="M28 42l4 5 4-5-4-3z" fill="#ff9fbb"/>
+
+    <!-- 脸 -->
+    <ellipse cx="32" cy="33" rx="16" ry="15" fill="#ffe9e3"/>
+
+    <!-- 刘海 -->
+    <path d="M16 27c1-11 8-15 16-15s15 4 16 15c-4-7-9-9-16-9s-12 2-16 9z" fill="url(#hairGrad)"/>
+
+    <!-- 耳机（客服） -->
+    <circle cx="14" cy="33" r="5.5" fill="#fff" stroke="#d9d3ff" stroke-width="2"/>
+    <circle cx="50" cy="33" r="5.5" fill="#fff" stroke="#d9d3ff" stroke-width="2"/>
+    <path d="M14 27.5a16 16 0 0 1 36 0" stroke="#d9d3ff" stroke-width="2" fill="none"/>
+
+    <!-- 眼睛（会眨） -->
+    <g class="mascot-eyes">
+      <ellipse cx="26" cy="35" rx="3.6" ry="4.4" fill="#4a3b8f"/>
+      <ellipse cx="38" cy="35" rx="3.6" ry="4.4" fill="#4a3b8f"/>
+      <circle cx="27.4" cy="33.4" r="1.3" fill="#fff"/>
+      <circle cx="39.4" cy="33.4" r="1.3" fill="#fff"/>
+    </g>
+
+    <!-- 腮红 -->
+    <ellipse cx="23" cy="40" rx="3" ry="1.8" fill="#ffb3c8" opacity="0.75"/>
+    <ellipse cx="41" cy="40" rx="3" ry="1.8" fill="#ffb3c8" opacity="0.75"/>
+
+    <!-- 嘴 -->
+    <path d="M30 41q2 2.4 4 0" stroke="#d4708c" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+
+
+/* ============================================================
+   基础渲染
+   ============================================================ */
+
 function scrollBottom() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function aiAvatar() {
+  const box = document.createElement('div');
+  box.className = 'avatar ai';
+  box.innerHTML = mascotSvg();
+  return box;
 }
 
 function addMessage(role, content) {
@@ -17,18 +97,17 @@ function addMessage(role, content) {
   const row = document.createElement('div');
   row.className = `message-row ${role}`;
 
-  const avatar = document.createElement('div');
-  avatar.className = `avatar ${role === 'ai' ? 'ai' : 'user'}`;
-  avatar.textContent = role === 'ai' ? '🤖' : '你';
-
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
   bubble.textContent = content;
 
   if (role === 'ai') {
-    row.appendChild(avatar);
+    row.appendChild(aiAvatar());
     row.appendChild(bubble);
   } else {
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar user';
+    avatar.textContent = '你';
     row.appendChild(bubble);
     row.appendChild(avatar);
   }
@@ -43,10 +122,6 @@ function addOrderCard(order) {
   const row = document.createElement('div');
   row.className = 'message-row ai';
 
-  const avatar = document.createElement('div');
-  avatar.className = 'avatar ai';
-  avatar.textContent = '🤖';
-
   const card = document.createElement('div');
   card.className = 'order-card';
   card.innerHTML = `
@@ -56,7 +131,7 @@ function addOrderCard(order) {
     <div class="order-card-row"><span>状态</span><strong class="order-status">${escapeHtml(order.status)}</strong></div>
   `;
 
-  row.appendChild(avatar);
+  row.appendChild(aiAvatar());
   row.appendChild(card);
   messagesEl.appendChild(row);
   scrollBottom();
@@ -68,10 +143,6 @@ function addConfirmationCard(result) {
   const row = document.createElement('div');
   row.className = 'message-row ai';
 
-  const avatar = document.createElement('div');
-  avatar.className = 'avatar ai';
-  avatar.textContent = '🤖';
-
   const card = document.createElement('div');
   card.className = 'confirm-card';
 
@@ -79,7 +150,7 @@ function addConfirmationCard(result) {
   const orderId = action.arguments?.order_id;
 
   card.innerHTML = `
-    <div class="confirm-title">⚠️ 需要确认</div>
+    <div class="confirm-title">⚠️ 需要你确认</div>
     <div class="confirm-text">${escapeHtml(action.message || '该操作需要用户确认')}</div>
     ${orderId !== undefined ? `<div class="confirm-detail">即将取消订单 <strong>${escapeHtml(orderId)}</strong></div>` : ''}
     <div class="confirm-actions">
@@ -94,7 +165,7 @@ function addConfirmationCard(result) {
     });
   });
 
-  row.appendChild(avatar);
+  row.appendChild(aiAvatar());
   row.appendChild(card);
   messagesEl.appendChild(row);
   scrollBottom();
@@ -114,7 +185,6 @@ function escapeHtml(value) {
 }
 
 function renderAgentResult(result) {
-  // 1. 正常回答：agent() 最终返回字符串
   if (typeof result === 'string') {
     addMessage('ai', result);
     return;
@@ -125,13 +195,11 @@ function renderAgentResult(result) {
     return;
   }
 
-  // 2. 危险 Tool：后端要求下一轮用户回复“确认/取消”
   if (result.status === 'confirmation_required') {
     addConfirmationCard(result);
     return;
   }
 
-  // 3. 用户确认后的执行结果 / 普通 Tool 结果
   if (result.status === 'success') {
     const order = result.data?.order;
     if (order) {
@@ -141,10 +209,7 @@ function renderAgentResult(result) {
 
     const cancelledOrderId = result.data?.order_id;
     if (cancelledOrderId !== undefined && result.data?.status) {
-      addMessage(
-        'ai',
-        `订单 ${cancelledOrderId} 已处理，当前状态：${result.data.status}`
-      );
+      addMessage('ai', `订单 ${cancelledOrderId} 已处理，当前状态：${result.data.status}`);
       return;
     }
 
@@ -152,13 +217,11 @@ function renderAgentResult(result) {
     return;
   }
 
-  // 4. 后端业务错误 / 系统错误
   if (result.status === 'error') {
     addErrorCard(result.error?.message || '请求处理失败。');
     return;
   }
 
-  // 5. 用户取消或仍在等待确认
   if (result.status === 'cancelled' || result.status === 'waiting_for_confirmation') {
     addMessage('ai', result.message || '操作已处理。');
     return;
@@ -171,10 +234,13 @@ function addTyping() {
   const row = document.createElement('div');
   row.className = 'message-row ai';
   row.id = 'typingRow';
-  row.innerHTML = `
-    <div class="avatar ai">🤖</div>
-    <div class="bubble"><span class="typing"><i></i><i></i><i></i></span></div>
-  `;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
+
+  row.appendChild(aiAvatar());
+  row.appendChild(bubble);
   messagesEl.appendChild(row);
   scrollBottom();
 }
@@ -183,11 +249,11 @@ function removeTyping() {
   document.getElementById('typingRow')?.remove();
 }
 
-// ============================================================
-// 会话管理
-// 历史会话存在 SQLite 里，新建会话只是换一个 session_id，
-// 不会删除旧会话。
-// ============================================================
+
+/* ============================================================
+   会话管理
+   历史会话存在 SQLite，新建会话只是换 session_id，不会删历史
+   ============================================================ */
 
 function setActiveSession(sessionId) {
   currentSessionId = sessionId;
@@ -210,9 +276,7 @@ async function loadSessions() {
       const item = document.createElement('div');
       item.className = 'session-item';
       item.dataset.id = session.session_id;
-      if (session.session_id === currentSessionId) {
-        item.classList.add('active');
-      }
+      if (session.session_id === currentSessionId) item.classList.add('active');
 
       const title = document.createElement('span');
       title.className = 'session-title';
@@ -229,7 +293,6 @@ async function loadSessions() {
 
       item.appendChild(title);
       item.appendChild(del);
-
       item.addEventListener('click', () => openSession(session.session_id));
 
       listEl.appendChild(item);
@@ -275,7 +338,6 @@ async function openSession(sessionId) {
     welcome.style.display = 'none';
 
     messages.forEach((message) => {
-      // 后端存的是 user / assistant，前端用 user / ai
       const role = message.role === 'assistant' ? 'ai' : message.role;
       addMessage(role, message.content);
     });
@@ -287,7 +349,6 @@ async function openSession(sessionId) {
 async function removeSession(sessionId) {
   try {
     await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
-
     if (sessionId === currentSessionId) {
       createNewSession();
     } else {
@@ -297,6 +358,11 @@ async function removeSession(sessionId) {
     console.error('删除会话失败：', error);
   }
 }
+
+
+/* ============================================================
+   发送消息
+   ============================================================ */
 
 async function sendMessage(text = input.value.trim()) {
   if (!text || busy) return;
@@ -326,11 +392,8 @@ async function sendMessage(text = input.value.trim()) {
       return;
     }
 
-    if (data.session_id) {
-      setActiveSession(data.session_id);
-    }
+    if (data.session_id) setActiveSession(data.session_id);
 
-    // 后端返回：{ result: agent(...), session_id }
     renderAgentResult(data?.result);
     loadSessions();
   } catch (error) {
@@ -343,6 +406,11 @@ async function sendMessage(text = input.value.trim()) {
     input.focus();
   }
 }
+
+
+/* ============================================================
+   事件绑定
+   ============================================================ */
 
 sendBtn.addEventListener('click', () => sendMessage());
 
@@ -358,19 +426,30 @@ input.addEventListener('input', () => {
   input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
 });
 
+// 欢迎区和开发者面板里的快捷问题
 document.querySelectorAll('[data-message]').forEach((button) => {
   button.addEventListener('click', () => sendMessage(button.dataset.message));
 });
 
-// 新建会话：只开一个新会话，不再清空历史
 newChatBtn.addEventListener('click', createNewSession);
 
-// 页面加载时读取历史会话列表
+// 开发者面板：默认隐藏，点左下角按钮才展开
+function toggleDevPanel() {
+  devPanel.hidden = !devPanel.hidden;
+}
+devToggle.addEventListener('click', toggleDevPanel);
+devClose.addEventListener('click', toggleDevPanel);
+
+// 载入看板娘
+document.getElementById('brandAvatar').innerHTML = mascotSvg();
+document.getElementById('welcomeMascot').innerHTML = mascotSvg();
+
+// 读取历史会话
 (async function initSessions() {
   await loadSessions();
 })();
 
-// 页面加载后从后端健康检查接口同步实际模型名称。
+// 同步后端真实模型名称
 (async function loadAgentStatus() {
   try {
     const response = await fetch('/health');

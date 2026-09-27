@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>跨境电商 AI 客服 Agent</title>
+  <title>跨境电商 AI 客服 · 小贸</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <div class="app-shell">
+    <!-- ================= 左侧：会话 ================= -->
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">AI</div>
-        <div>
-          <div class="brand-title">E-Commerce Agent</div>
-          <div class="brand-subtitle">跨境电商智能客服</div>
+        <div class="brand-avatar" id="brandAvatar"></div>
+        <div class="brand-text">
+          <div class="brand-title">小贸 · 智能客服</div>
+          <div class="brand-subtitle">跨境电商 AI 助手</div>
         </div>
       </div>
 
@@ -22,36 +23,30 @@
       <div class="sidebar-section-title">历史会话</div>
       <div class="session-list" id="sessionList"></div>
 
-      <div class="sidebar-section-title">功能</div>
-      <div class="feature-list">
-        <div class="feature-item active"><span>💬</span> 智能客服</div>
-        <div class="feature-item"><span>📦</span> 订单查询</div>
-        <div class="feature-item"><span>📚</span> 知识库问答</div>
-      </div>
-
       <div class="sidebar-footer">
-        <div class="stack-title">Agent 能力</div>
-        <div class="tag-row">
-          <span>LangChain</span><span>RAG</span><span>Tool Calling</span>
-          <span>Redis</span><span>Memory</span>
-        </div>
+        <button class="dev-toggle" id="devToggle">🛠 开发者面板</button>
       </div>
     </aside>
 
+    <!-- ================= 中间：对话 ================= -->
     <main class="chat-area">
       <header class="topbar">
         <div>
           <div class="page-title">AI 客服工作台</div>
-          <div class="page-subtitle"><span class="online-dot"></span> Agent 在线 · 可查询订单与跨境电商政策</div>
+          <div class="page-subtitle"><span class="online-dot"></span> 小贸在线 · 可查询订单与跨境政策</div>
         </div>
-        <div class="topbar-badge">Agent v1.0</div>
+        <div class="tag-row">
+          <span class="pill">RAG</span>
+          <span class="pill">Tool Calling</span>
+          <span class="pill">Memory</span>
+        </div>
       </header>
 
       <section class="messages" id="messages">
         <div class="welcome" id="welcome">
-          <div class="welcome-icon">🤖</div>
-          <h1>你好，我是跨境电商 AI 客服</h1>
-          <p>我可以帮你查询订单、处理退货退款政策等问题。</p>
+          <div class="welcome-mascot" id="welcomeMascot"></div>
+          <h1>你好，我是小贸 🌸</h1>
+          <p>我可以帮你查询订单、解答退货退款与物流政策。有什么可以帮你的吗？</p>
           <div class="quick-actions">
             <button data-message="查询订单1002">📦 查询订单1002</button>
             <button data-message="日本地区的商品退货政策是什么？">🇯🇵 日本退货政策</button>
@@ -69,11 +64,17 @@
       </div>
     </main>
 
-    <aside class="info-panel">
-      <div class="info-header">Agent 状态</div>
+    <!-- ================= 右侧：开发者面板（默认隐藏） ================= -->
+    <aside class="dev-panel" id="devPanel" hidden>
+      <div class="dev-header">
+        <span>开发者面板</span>
+        <button class="dev-close" id="devClose">✕</button>
+      </div>
+
+      <div class="info-title">Agent 状态</div>
       <div class="status-card">
         <div class="status-row"><span>运行状态</span><strong><i class="green-dot"></i>正常</strong></div>
-        <div class="status-row"><span>模型</span><strong id="modelName">GPT-5.6-terra</strong></div>
+        <div class="status-row"><span>模型</span><strong id="modelName">-</strong></div>
         <div class="status-row"><span>框架</span><strong>LangChain</strong></div>
       </div>
 
@@ -95,6 +96,10 @@
         <button data-message="查询订单1001">查询订单</button>
         <button data-message="美国地区的退货政策是什么？">RAG 政策查询</button>
         <button data-message="帮我取消订单1001">危险 Tool 确认</button>
+      </div>
+
+      <div class="dev-note">
+        这个面板给开发/调试用，普通用户看不到。
       </div>
     </aside>
   </div>
