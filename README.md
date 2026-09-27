@@ -222,19 +222,80 @@ Agent：订单 1001 已取消。
 
 ## 目录结构
 
+### 入口与配置
+
+| 文件 | 作用 |
+|---|---|
+| `app/main.py` | FastAPI 入口：初始化数据库、注册路由、挂载前端 |
+| `app/config.py` | 统一配置：LLM 密钥/模型、数据路径（密钥走环境变量） |
+| `Dockerfile` / `docker-compose.yml` | 镜像构建与 agent + redis 编排 |
+
+### Agent 核心
+
+| 文件 | 作用 |
+|---|---|
+| `app/agent/agent.py` | 主流程：待确认处理 → 入口治理 → 读记忆 → 调 LLM → 存消息；10 个工具在此绑定 |
+| `app/agent/registry.py` | 工具注册表：装饰器注册、白名单、参数校验、指数退避重试 |
+| `app/agent/middleware.py` | 危险操作拦截：写待确认状态，用户确认前不执行 |
+| `app/agent/guardrails.py` | 入口治理：注入检测、意图分类、无关话题拦截 |
+| `app/agent/language.py` | 多语言：字符特征判语言，生成应答语言指令 |
+| `app/agent/context.py` | 系统提示词与上下文组装 |
+| `app/agent/result.py` | 统一返回结构：success / error / confirmation_required |
+| `app/agent/session_context.py` | ContextVar，让工具拿到当前 session_id |
+| `app/agent/callback.py` | 工具调用日志回调 |
+
+### 工具层
+
+| 文件 | 作用 |
+|---|---|
+| `app/tools/order.py` | 查询订单、取消订单 |
+| `app/tools/knowledge.py` | RAG 政策问答 |
+| `app/tools/ticket.py` | 转人工、创建工单 |
+| `app/tools/business.py` | 订单列表 / 物流 / 退款 / 改地址 / 优惠券 / 运费估算 |
+
+### RAG
+
+| 文件 | 作用 |
+|---|---|
+| `app/rag/hybrid_search.py` | 向量检索 + BM25 融合 |
+| `app/rag/reranker.py` | Cross-Encoder 重排（延迟加载） |
+| `app/rag/retriever.py` | Chroma 读写封装 |
+| `app/rag/bm25_search.py` / `keyword_search.py` | 关键词检索 |
+| `app/rag/chunker.py` | 文档切片 |
+| `app/rag/knowledge.py` | 知识库灌入 / 删除 |
+| `app/rag/langchain_retriever.py` | 供 LangChain 使用的 Retriever |
+| `app/rag/rag_chain.py` | RAG 问答链 |
+
+### 记忆、状态与存储
+
+| 文件 | 作用 |
+|---|---|
+| `app/memory/conversation.py` | 对话历史：写 Redis + 同时落库 SQLite |
+| `app/memory/redis_state.py` | Redis 连接与待确认状态（TTL 30 分钟） |
+| `app/database/db.py` | 连接与建表总入口、订单 CRUD |
+| `app/database/session_store.py` | `sessions` + `messages`（会话持久化） |
+| `app/database/ticket_store.py` | `tickets`（人工工单） |
+| `app/database/business_store.py` | `shipments` / `refunds` / `coupons` / `order_address` |
+
+### 接口、前端与评测
+
+| 文件 | 作用 |
+|---|---|
+| `app/api/chat.py` | `/api/chat`、`/sessions`、`/tickets` |
+| `frontend/index.html` / `app.js` / `style.css` | 动漫风客服界面（会话侧边栏 + 隐藏开发者面板） |
+| `eval/evaluate.py` | 24 条离线评测 |
+| `eval/report.md` | 评测结果报告 |
+| `tests/` | 26 个测试：工具、检索、会话、Agent 端到端 |
+
+### 数据流
+
 ```
-app/
-├── main.py              FastAPI 入口
-├── api/chat.py          对话接口 /api/chat
-├── agent/
-│   ├── agent.py         Agent 主控
-│   ├── registry.py      工具注册表（装饰器 + 重试）
-│   ├── middleware.py    危险操作拦截
-│   └── langchain_tools.py
-├── tools/               业务工具实现（订单 / 知识库）
-├── rag/                 分块、向量、BM25、混合检索、重排
-├── memory/              Redis 会话与待确认状态
-└── database/            SQLite 订单表
+main.py → api/chat.py → agent.py
+                          ├─ guardrails.py（护栏 / 意图 / 多语言）
+                          ├─ middleware.py（危险操作拦截）
+                          ├─ registry.py → tools/*（10 个工具）
+                          │                  └─ rag/*（混合检索 + 重排）
+                          └─ memory/* → Redis（热） + database/*（冷）
 ```
 
 ---
