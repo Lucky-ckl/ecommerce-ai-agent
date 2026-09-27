@@ -4,9 +4,10 @@
 # ==============================
 
 from app.agent.registry import (
-    tools,
-    build_tool_schema,
-    execute_tool
+    TOOLS,
+    describe_tools,
+    execute_tool,
+    tool
 )
 
 
@@ -16,21 +17,17 @@ from app.agent.registry import (
 
 print("===== 当前 Tool =====")
 
-for tool_name in tools:
+for tool_name in TOOLS:
     print(tool_name)
 
 
 # =========================================================
-# 2. 查看 RAG Tool 的 Schema
+# 2. 查看给模型看的 Tool 清单
 # =========================================================
 
-print("\n===== RAG Tool Schema =====")
+print("\n===== Tool 描述 =====")
 
-schema = build_tool_schema(
-    "search_knowledge"
-)
-
-print(schema)
+print(describe_tools())
 
 
 # =========================================================
@@ -71,13 +68,11 @@ def mock_system_error_tool(message: str):
     raise RuntimeError(message)
 
 
-# 把临时 Tool 注册到 Registry
-tools["test_system_error"] = {
-    "function": mock_system_error_tool,
-    "args_model": MockSystemErrorArgs,
-    "description": "用于测试系统异常",
-    "dangerous": False
-}
+# 把临时 Tool 注册到 Registry（装饰器方式）
+tool(
+    "test_system_error",
+    "用于测试系统异常"
+)(mock_system_error_tool)
 
 
 print("\n===== 测试 System Error =====")

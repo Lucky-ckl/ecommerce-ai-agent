@@ -51,12 +51,11 @@ def retry_test_tool(value: int):
 # 3. 临时注册测试 Tool
 # ============================================================
 
-registry.tools["retry_test_tool"] = {
-    "function": retry_test_tool,
-    "args_model": RetryTestArgs,
-    "description": "用于测试 Retry 的临时 Tool",
-    "dangerous": False
-}
+# 用装饰器注册（等价于业务 Tool 的注册方式）
+registry.tool(
+    "retry_test_tool",
+    "用于测试 Retry 的临时 Tool"
+)(retry_test_tool)
 
 
 # ============================================================
@@ -121,6 +120,6 @@ assert result["data"]["message"] == "第3次执行成功"
 # 9. 清理测试环境
 # ============================================================
 
-del registry.tools["retry_test_tool"]
+registry.TOOLS.pop("retry_test_tool", None)
 
 print("\n===== Retry / Backoff 测试通过 =====")

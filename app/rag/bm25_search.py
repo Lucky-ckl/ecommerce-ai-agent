@@ -6,6 +6,7 @@ import jieba
 from rank_bm25 import BM25Okapi
 
 from app.rag.retriever import collection
+from app.utils.logger import logger
 
 
 # ============================================================
@@ -39,10 +40,10 @@ def load_documents():
     metadatas = results["metadatas"]
     ids = results["ids"]
 
-    print("========== RAG知识库检查 ==========")
-    print("知识数量：", len(documents))
-    print("IDs：", ids)
-    print("===================================")
+    logger.debug(
+        f"知识库检索 | "
+        f"知识数量={len(documents)}"
+    )
 
     return ids, documents, metadatas
 

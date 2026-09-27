@@ -1,8 +1,17 @@
 # ============================================================
 # app/agent/registry.py
-# Agent Tool Registry
+# Agent Tool Registry（装饰器版）
+#
+# 变化：
+# 1. 注册方式从手写 dict 改为 @tool 装饰器
+# 2. 参数信息从函数签名自动提取，不再手写 schema
+# 3. execute_tool(tool_name, arguments) 签名保持不变，
+#    所以 app/agent/agent.py 和 langchain_tools.py 不用改
+#
+# 设计参考 browser-use: browser_use/tools/registry/service.py
 # ============================================================
 
+import inspect
 import time
 
 from app.tools.order import (
@@ -60,68 +69,198 @@ def get_backoff_delay(retry_number):
 
 
 # ============================================================
-# 1. Tool Registry
+# 1. Tool 规格与注册表
 # ============================================================
 
-tools = {
-
-    "get_order_record": {
-        "function": query_order,
-
-        "description": "根据订单ID查询订单状态",
-
-        "dangerous": False
-    },
-
-    "cancel_order": {
-        "function": cancel_order,
-
-        "description": (
-            "取消指定订单。"
-            "当用户明确要求取消订单时必须调用此Tool。"
-            "该操作会修改订单状态，需要用户确认。"
-        ),
-
-        "dangerous": True
-    },
-
-    "search_knowledge": {
-        "function": None,
-
-        "description": (
-            "查询跨境电商知识库，"
-            "例如退货政策、退款政策、物流规则等。"
-        ),
-
-        "dangerous": False
-    }
-
-}
-
-
-# ============================================================
-# 2. RAG Tool
-# ============================================================
-
-def search_knowledge_tool(question: str):
+class ToolSpec:
     """
-    RAG 工具的实际执行入口。
+    一个已注册 Tool 的全部信息。
     """
+
+    def __init__(
+        self,
+        name,
+        function,
+        description,
+        dangerous=False,
+        signature=None
+    ):
+
+        self.name = name
+
+        self.function = function
+
+        self.description = description
+
+        self.dangerous = dangerous
+
+        # 从函数签名自动生成，不需要手写参数 schema
+        self.signature = signature
+
+    def param_names(self):
+        """
+        返回必填参数名列表（排除有默认值的参数）。
+        """
+
+        return [
+            name
+            for name, param in self.signature.parameters.items()
+            if param.default is inspect.Parameter.empty
+        ]
+
+    def __repr__(self):
+
+        return f"<ToolSpec {self.name} dangerous={self.dangerous}>"
+
+
+# 注册表：tool_name -> ToolSpec
+TOOLS = {}
+
+
+def tool(
+    name,
+    description,
+    dangerous=False
+):
+    """
+    注册一个 Tool 的装饰器。
+
+    用法：
+
+        @tool("名字", "给模型看的描述", dangerous=False)
+        def 你的函数(参数: 类型):
+            ...
+
+    描述会自动成为提示词的一部分，
+    参数信息从函数签名自动提取。
+    """
+
+    def decorator(func):
+
+        TOOLS[name] = ToolSpec(
+            name=name,
+            function=func,
+            description=description,
+            dangerous=dangerous,
+            signature=inspect.signature(func)
+        )
+
+        logger.info(
+            f"Tool已注册 | "
+            f"tool={name} | "
+            f"dangerous={dangerous}"
+        )
+
+        # 原样返回函数本身，不影响任何直接调用
+        return func
+
+    return decorator
+
+
+def is_dangerous(tool_name):
+    """
+    判断某个 Tool 是否需要人工确认。
+    """
+
+    spec = TOOLS.get(tool_name)
+
+    return bool(spec and spec.dangerous)
+
+
+def describe_tools():
+    """
+    生成给模型看的 Tool 清单。
+
+    新增 Tool 时这里会自动包含它，不需要手动维护。
+    """
+
+    lines = []
+
+    for spec in TOOLS.values():
+
+        params = ", ".join(
+            f"{p_name}: {p.annotation.__name__ if hasattr(p.annotation, '__name__') else p.annotation}"
+            for p_name, p in spec.signature.parameters.items()
+        )
+
+        mark = "【危险操作，需用户确认】" if spec.dangerous else ""
+
+        lines.append(
+            f"- {spec.name}({params}): {spec.description}{mark}"
+        )
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# 2. 注册业务 Tools
+# ============================================================
+
+@tool(
+    "get_order_record",
+    "根据订单ID查询订单状态"
+)
+def get_order_record(order_id: int):
+
+    return query_order(order_id)
+
+
+@tool(
+    "cancel_order",
+    (
+        "取消指定订单。"
+        "当用户明确要求取消订单时必须调用此Tool。"
+        "该操作会修改订单状态，需要用户确认。"
+    ),
+    dangerous=True
+)
+def cancel_order_tool(order_id: int):
+
+    return cancel_order(order_id)
+
+
+@tool(
+    "search_knowledge",
+    (
+        "查询跨境电商知识库，"
+        "例如退货政策、退款政策、物流规则等。"
+    )
+)
+def search_knowledge_tool(
+    question: str,
+    k: int = 5,
+    top_k: int = 3
+):
 
     return search_knowledge(
         question=question,
-        k=5,
-        top_k=3
+        k=k,
+        top_k=top_k
     )
-
-
-# 将 RAG 工具函数放入 Registry
-tools["search_knowledge"]["function"] = search_knowledge_tool
 
 
 # ============================================================
 # 3. 执行 Tool
 # ============================================================
+
+def check_arguments(spec, arguments):
+    """
+    用函数签名校验模型传来的参数。
+
+    返回 None 表示通过，
+    返回字符串表示错误信息。
+    """
+
+    try:
+
+        spec.signature.bind(**arguments)
+
+        return None
+
+    except TypeError as e:
+
+        return str(e)
+
 
 def execute_tool(
     tool_name,
@@ -133,9 +272,10 @@ def execute_tool(
     本函数负责：
 
     1. Tool 白名单检查
-    2. Tool 业务函数执行
-    3. Retry / Backoff
-    4. 日志记录
+    2. 参数校验
+    3. Tool 业务函数执行
+    4. Retry / Backoff
+    5. 日志记录
 
     参数结构校验由 LangChain @tool 负责。
     Dangerous Tool 确认由 Middleware 负责。
@@ -151,7 +291,7 @@ def execute_tool(
     # ① Tool 白名单检查
     # ========================================================
 
-    if tool_name not in tools:
+    if tool_name not in TOOLS:
 
         logger.error(
             f"Tool不存在 | tool={tool_name}"
@@ -162,10 +302,38 @@ def execute_tool(
             message=f"不存在的 Tool：{tool_name}"
         )
 
-    tool = tools[tool_name]
+    spec = TOOLS[tool_name]
 
     # ========================================================
-    # ② 执行 Tool + Retry / Backoff
+    # ② 参数校验
+    #
+    # 模型可能传错参数名或漏传参数。
+    # 这里用签名挡住，避免业务函数抛出难以理解的 TypeError。
+    # ========================================================
+
+    argument_error = check_arguments(
+        spec,
+        arguments or {}
+    )
+
+    if argument_error:
+
+        logger.warning(
+            f"Tool参数不合法 | "
+            f"tool={tool_name} | "
+            f"error={argument_error}"
+        )
+
+        return error(
+            code="TOOL_INVALID_ARGUMENTS",
+            message=(
+                f"Tool {tool_name} 参数不合法："
+                f"{argument_error}"
+            )
+        )
+
+    # ========================================================
+    # ③ 执行 Tool + Retry / Backoff
     # ========================================================
 
     for attempt in range(MAX_TOOL_RETRIES + 1):
@@ -178,7 +346,7 @@ def execute_tool(
                 f"attempt={attempt + 1}"
             )
 
-            result = tool["function"](
+            result = spec.function(
                 **arguments
             )
 

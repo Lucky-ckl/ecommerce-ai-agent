@@ -2,18 +2,36 @@
 # app/rag/reranker.py
 # ============================================================
 
-from sentence_transformers import CrossEncoder
-
-
 # ============================================================
 # 1. 加载本地 Cross-Encoder Reranker
 # ============================================================
 
 MODEL_NAME = "BAAI/bge-reranker-v2-m3"
 
-reranker_model = CrossEncoder(
-    MODEL_NAME
-)
+# 延迟加载：
+# 以前这里在模块导入时就 new CrossEncoder，会触发模型下载。
+# 结果是只要 import 到 registry（订单查询也会），整个项目就启动不了。
+# 改成第一次真正需要重排时才加载。
+_reranker_model = None
+
+
+def get_reranker_model():
+    """
+    获取 Reranker 模型（首次调用时才加载）。
+    """
+
+    global _reranker_model
+
+    if _reranker_model is None:
+
+        # 在这里才 import，避免仅需订单查询时也拖进整套 ML 依赖
+        from sentence_transformers import CrossEncoder
+
+        _reranker_model = CrossEncoder(
+            MODEL_NAME
+        )
+
+    return _reranker_model
 
 
 # ============================================================
@@ -73,7 +91,7 @@ def rerank(
     # 4. Cross-Encoder 推理
     # ========================================================
 
-    scores = reranker_model.predict(
+    scores = get_reranker_model().predict(
         pairs
     )
 

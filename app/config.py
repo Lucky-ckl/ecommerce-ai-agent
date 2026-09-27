@@ -5,7 +5,10 @@
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 # ============================================================
 # 1. 项目根目录
